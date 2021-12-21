@@ -1,0 +1,33 @@
+{
+  "name": "sunsets_locale",
+  "version": "1.0.0",
+  "description": "![sunsets_locale_logo](sunsets.png?raw=true)\r This is a completely rebuilt version of [sunsets_locale](https://github.com/knightsean00/sunsets_locale). The bot is completely functional, can be used on multiple servers, and can play music from SoundCloud and YouTube.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knightsean00/sunsets_locale.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/knightsean00/sunsets_locale/issues"
+  },
+  "homepage": "https://github.com/knightsean00/sunsets_locale#readme",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.8.0",
+    "@typescript-eslint/parser": "^5.8.0",
+    "eslint": "^8.5.0",
+    "typescript": "^4.5.4"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.7.5",
+    "@yimura/scraper": "^1.2.3",
+    "discord.js": "^13.3.1",
+    "dotenv": "^10.0.0",
+    "ytpl": "^2.2.3"
+  }
+}
