@@ -1,8 +1,10 @@
-import youtube, { Scraper, Video, Results }  from "@yimura/scraper";
+import youtube, { Video,}  from "@yimura/scraper";
 import SongType from "./SongType";
-import { AudioResource, createAudioResource, demuxProbe, ProbeInfo, AudioPlayerEvents, AudioPlayerStatus, StreamType } from "@discordjs/voice";
+import { AudioResource, createAudioResource,} from "@discordjs/voice";
 import ytdl from "ytdl-core";
-import play, {YouTubeStream, SoundCloudStream} from "play-dl";
+import play, {YouTubeStream, SoundCloudStream, search, SoundCloudTrack } from "play-dl";
+import { CommandInteraction } from "discord.js";
+import urlReg from "./UrlRegEx";
 
 const yt = new youtube.Scraper();
 
@@ -21,6 +23,76 @@ export default class Song {
         this.url = url;
         this.duration = duration;
         this.thumbnail = thumbnail;
+    }
+
+    public static async createFromQuery(interaction: CommandInteraction): Promise<Song | undefined> {
+        const query = interaction.options.getString("query", true);
+        const sc = interaction.options.getBoolean("soundcloud", false) ?? false;
+
+        // Probably use regex here
+        if (urlReg.test(query)) {
+            const type = await play.validate(query);
+            if (!type || type === "search" || type.endsWith("album")) {
+                interaction.editReply(`Could not find ${query}.`);
+                return undefined;
+            }
+            if (type.endsWith("playlist")) {
+                interaction.editReply(`Please use the /playlist command with ${query} as the query.`);
+                return undefined;
+            }
+
+            if (type === "yt_video") {
+                const info = await play.video_info(query);
+                return new Song(query, 
+                    SongType.YouTube, 
+                    info.video_details.title ?? "unknown",
+                    info.video_details.url,
+                    info.video_details.durationInSec * 1000,
+                    info.video_details.thumbnails[0].url
+                );
+            } else if (type === "so_track") {
+                const info = await play.soundcloud(query) as SoundCloudTrack;
+                return new Song(query,
+                    SongType.SoundCloud,
+                    info.name,
+                    info.url,
+                    info.durationInMs,
+                    info.thumbnail
+                );
+            }
+        }
+
+        if (sc) {
+            const res = (await play.search(query, {source: { soundcloud: "tracks"}}));
+            if (res.length === 0) {
+                interaction.editReply(`Unable to find tracks under "${query}""`);
+                return undefined;
+            }
+            const info = res[0];
+            return new Song(
+                query,
+                SongType.SoundCloud,
+                info.name,
+                info.url,
+                info.durationInMs,
+                info.thumbnail
+            );
+        } else {
+            const res = await (play.search(query, {source: { youtube: "video"}}));
+            if (res.length === 0) {
+                interaction.editReply(`Unable to find tracks under "${query}""`);
+                return undefined;
+            }
+            const info = res[0];
+            return new Song(
+                query,
+                SongType.YouTube,
+                info.title ?? "unknown",
+                info.url,
+                info.durationInSec * 1000,
+                info.thumbnails[0].url
+            );
+        }
     }
 
     /**
@@ -52,14 +124,5 @@ export default class Song {
     public async createAudioResource(): Promise<AudioResource<Song>> {
         const stream = await play.stream(this.url);
         return createAudioResource(stream.stream, {metadata: this});
-        // return createAudioResource(ytdl(this.url, { quality: "lowestaudio", filter: "audioonly", highWaterMark: 1 }), {metadata: this});
-
-
-        // return new Promise((resolve, reject) => {
-        //     const stream = ytdl(this.url, { filter: "audioonly" });
-        // demuxProbe(stream)
-        //     .then((probe: ProbeInfo) => resolve(createAudioResource(probe.stream, {metadata: this, inputType: probe.type})))
-        //     .catch((error: Error) => {reject(error);});
-        // });
     }
 }

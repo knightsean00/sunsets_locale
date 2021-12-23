@@ -3,6 +3,9 @@ import SongType from "./SongType";
 import youtube from "@yimura/scraper";
 import { CommandInteraction, MessageEmbed } from "discord.js";
 import { timeRemaining } from "./Time";
+import urlReg from "./UrlRegEx";
+import play, { SoundCloudPlaylist, YouTubePlayList } from "play-dl";
+import ytpl from "ytpl";
 
 const yt = new youtube.Scraper();
 
@@ -19,27 +22,11 @@ export default class Queue {
      * @param query 
      * @param type 
      */
-    public async enqueue(query:string, type:SongType=SongType.YouTube) {
-        switch(type) {
-        case SongType.YouTube: {
-            try {
-                this.songs.push(await Song.createFromYT(query));
-            } catch (err) {
-                console.log(err);
-            }
-            break;
-        }
-        case SongType.SoundCloud: {
-            try {
-                this.songs.push(await Song.createFromSC(query));
-            } catch (err) {
-                console.log(err);
-            }
-            break;
-        }
-        default: {
-            throw new Error(`Undefined song type ${type}`);
-        }
+    public async enqueue(interaction: CommandInteraction): Promise<void> {
+        const song = await Song.createFromQuery(interaction);
+        if (song) {
+            this.songs.push(song);
+            interaction.editReply(`Added ${song.title} to queue.`);
         }
     }
 
@@ -68,36 +55,49 @@ export default class Queue {
     /**
      * Skips to the song at the specified index without disrupting the order of the songs before it.
      * 
-     * @param interaction 
-     * @param idx 
+     * @param interaction contains an index for modification
      */
-    public seek(interaction: CommandInteraction): Song | undefined {
+    public seek(interaction: CommandInteraction): void {
         const idx = interaction.options.getInteger("index", true);
         if (idx < 0 || idx >= this.songs.length) {
-            interaction.reply({ content: "Invalid song index", ephemeral: true });
+            interaction.reply("Invalid song index");
             return undefined;
         }
 
-        this.songs = [this.songs[idx], ...this.songs.slice(1,idx), ...this.songs.slice(idx + 1)];
-        interaction.reply({ content: `Seeked to ${this.songs[0].title}`, ephemeral: true });
-        return this.songs[0];
+        this.songs = [this.songs[0], this.songs[idx], ...this.songs.slice(1,idx), ...this.songs.slice(idx + 1)];
+        interaction.reply(`Seeked to ${this.songs[1].title}.`);
     }
     
     /**
      * Skips to the song at the index and removes all songs before it.
      * 
-     * @param idx must be an integer
+     * @param interaction contains an index for modification
      */
-    public skip(interaction: CommandInteraction): Song | undefined {
-        const idx = interaction.options.getInteger("Song Index", false) ?? 1;
+    public skip(interaction: CommandInteraction): void {
+        const idx = interaction.options.getInteger("index", false) ?? 1;
         if (idx < 0 || idx >= this.songs.length) {
-            interaction.reply({ content: "Invalid song index", ephemeral: true });
+            interaction.reply("Invalid song index.");
             return undefined;
         } 
 
-        this.songs = this.songs.slice(idx);
-        interaction.reply({ content: `Skipped to ${this.songs[0].title}`, ephemeral: true });
-        return this.songs[0];
+        this.songs = [this.songs[0], ...this.songs.slice(idx)];
+        interaction.reply(`Skipped to ${this.songs[1].title}.`);
+    }
+
+
+    /**
+     * Removes the Song at the specified index
+     * @param interaction contains an index for modification
+     */
+    public remove(interaction: CommandInteraction): void {
+        const idx = interaction.options.getInteger("index", false) ?? 1;
+        if (idx <= 0 || idx >= this.songs.length) {
+            interaction.reply("Invalid song index.");
+            return undefined;
+        } 
+
+        const song = this.songs.splice(idx, 1)[0];
+        interaction.reply(`Removed ${song.title} from the queue.`);
     }
 
     /**
@@ -110,19 +110,112 @@ export default class Queue {
     }
 
     /**
-     * Creates a Song from a YouTube query
+     * Creates Song(s) from a playlist query
      * 
      * @param query user query to look up
      * @throws an error if no playlists matching the query are found
      */
-    public async enqueueFromYTPlaylist(query:string) {
-        const res = await yt.search(query, {searchType: "PLAYLIST"});
-        if (res.playlists.length === 0) {
-            throw new Error(`No playlist matching ${query} found.`);
+    public async enqueueFromPlaylistQuery(interaction: CommandInteraction): Promise<void> {
+        const query = interaction.options.getString("query", true);
+        const sc = interaction.options.getBoolean("soundcloud", false) ?? false;
+
+        // Probably use regex here
+        if (urlReg.test(query)) {
+            const type = await play.validate(query);
+            if (!type || type === "search") {
+                interaction.editReply(`Could not find playlist with ${query}.`);
+                return undefined;
+            }
+            if (type.endsWith("track") || type.endsWith("video")) {
+                interaction.editReply(`Please use the /play command with ${query} as the query.`);
+                return undefined;
+            }
+
+            if (type === "yt_playlist") {
+                const url = query;
+                await this.enqueueYouTubePlaylist(interaction, url);
+            } else if (type === "so_playlist") {
+                const playlist = await play.soundcloud(query) as SoundCloudPlaylist;
+                await this.enqueueSoundCloudPlaylist(interaction, playlist);
+            }
         }
-        return this.songs.push(...(res.playlists[0].preview.map(info => new Song(query, SongType.YouTube, info.title, info.link, info.duration, info.thumbnail))));
+
+        if (sc) {
+            const res = (await play.search(query, {source: { soundcloud: "playlists"}}));
+            if (res.length === 0) {
+                interaction.editReply(`Unable to find playlists under "${query}""`);
+                return ;
+            }
+            const playlist = res[0];
+            await this.enqueueSoundCloudPlaylist(interaction, playlist);
+        } else {
+            const res = await (play.search(query, {source: { youtube: "playlist"}}));
+            if (res.length === 0 || !res[0].url) {
+                interaction.editReply(`Unable to find playlist under "${query}""`);
+                return ;
+            }
+            const playlist = res[0];
+            await this.enqueueYouTubePlaylist(interaction, playlist.url as string);
+        }
     }
 
+    /**
+     * Enqueues all of the songs beloning to a given playlist of soundcloud tracks.
+     * 
+     * @param interaction interaction that contains query as an option and is reply-able.
+     * @param playlist playlist to get Song information from.
+     */
+    private async enqueueSoundCloudPlaylist(interaction: CommandInteraction, playlist: SoundCloudPlaylist) {
+        const query = interaction.options.getString("query", true);
+        
+        await playlist.fetch();
+
+        const results = playlist.fetched_tracks.map(track => new Song(query,
+            SongType.SoundCloud,
+            track.name,
+            track.url,
+            track.durationInMs,
+            track.thumbnail
+        ));
+        this.songs.push(...results);
+        if (playlist.tracksCount !== 0) {
+            interaction.editReply(`Added ${playlist.tracksCount} songs to the queue.`);
+        } else {
+            interaction.editReply(`Requested playlist ${query} was empty.`);
+        }
+    }
+    
+    /**
+     * Given an interaction and YouTubePlaylist, adds all of the YouTube Videos as Songs to the queue.
+     * 
+     * @param interaction interaction that contains query as an option and is reply-able.
+     * @param url playlist url.
+     */
+    private async enqueueYouTubePlaylist(interaction: CommandInteraction, url: string): Promise<void> {
+        const query = interaction.options.getString("query", true);
+        const oldLength = this.songs.length;
+        
+        const res = await ytpl(url, {pages: Infinity});
+        const results = res.items.map(video => new Song(query, 
+            SongType.YouTube,
+            video.title,
+            video.shortUrl,
+            (video.durationSec ?? 0) * 1000,
+            video.bestThumbnail.url ?? "https://images-na.ssl-images-amazon.com/images/I/71e7DkexvHL._AC_SX425_.jpg"
+        ));
+        this.songs.push(...results);
+        
+        if (this.songs.length - oldLength > 0) 
+            interaction.editReply(`Added ${this.songs.length - oldLength} songs to the queue.`);
+        else
+            interaction.editReply(`Requested playlist ${query} was empty.`);
+    }
+
+
+    /**
+     * Creates a MessageEmbed that represents this queue object given a streamTime
+     * @param streamTime time that the current song has been streaming.
+     */
     public getQueue(streamTime: number): MessageEmbed {
         let output = "";
 

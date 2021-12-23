@@ -22,22 +22,24 @@ import { formatSec } from "./Time";
 const wait = promisify(setTimeout);
 
 /**
- * A MusicSubscription exists for each active VoiceConnection. Each subscription has its own audio player and queue.
+ * A MusicManager exists for each active VoiceConnection. Each subscription has its own audio player and queue.
  */
 
-export class MusicSubscription {
+export class MusicManager {
     public voiceConnection: VoiceConnection;
     public audioPlayer: AudioPlayer;
     public audioResource: AudioResource | undefined;
     public queue: Queue;
     public channel: TextChannel;
+    public cleanUp: () => void;
 
-    public constructor(voiceConnection: VoiceConnection, interaction: CommandInteraction) {
+    public constructor(voiceConnection: VoiceConnection, interaction: CommandInteraction, cleanUp: () => void) {
         this.voiceConnection = voiceConnection;
         this.audioPlayer = createAudioPlayer();
         this.queue = new Queue([]);
         this.channel = interaction.channel as TextChannel;
         this.audioResource = undefined;
+        this.cleanUp = cleanUp;
 
         this.voiceConnection.on("stateChange", async (oldState: VoiceConnectionState, newState: VoiceConnectionState) => {
             if (newState.status === VoiceConnectionStatus.Disconnected) {
@@ -50,6 +52,7 @@ export class MusicSubscription {
                     try {
                         await entersState(this.voiceConnection, VoiceConnectionStatus.Connecting, 5000);
                     } catch {
+                        this.cleanUp();
                         this.voiceConnection.destroy();
                     }
                 } else if (this.voiceConnection.rejoinAttempts < 5) {
@@ -60,6 +63,7 @@ export class MusicSubscription {
                 } else {
                     // the disconnect MAY be recoverable, but it exceeded 5 attempts
                     this.queue.clear();
+                    this.cleanUp();
                     this.voiceConnection.destroy();
                 }
 
@@ -86,10 +90,11 @@ export class MusicSubscription {
                  */
                 this.queue.next();
                 this.processQueue();
-            } else if (newState.status === AudioPlayerStatus.Playing) {
+            } else if (newState.status === AudioPlayerStatus.Playing && oldState.status !== AudioPlayerStatus.Playing && oldState.status !== AudioPlayerStatus.AutoPaused) {
                 /**
                  *  When entering Playing state, a new track has started playing
                  */ 
+
                 const embed = this.nowPlaying();
                 if (embed)
                     this.channel.send({embeds: [embed]});
@@ -102,15 +107,34 @@ export class MusicSubscription {
     /**
      * Adds a new Song to the queue.
      * 
-     * @param query 
-     * @param songType 
+     * @param interaction interaction that contains a query string and is reply-able.
      */
-    public async enqueue(interaction: CommandInteraction, query: string, songType: SongType) {
-        if (songType === SongType.YouTube) {
-            await this.queue.enqueue(query, songType);
-            interaction.reply(`Added ${this.queue.songs[this.queue.songs.length - 1].title} to queue.`);
-        }
-        
+    public async enqueue(interaction: CommandInteraction) {
+        await this.queue.enqueue(interaction);
+
+        this.processQueue();
+    }
+
+    /**
+     * Queries and enqueues songs from a given playlist name/url
+     * 
+     * @param interaction interaction that contains a query string and is reply-able.
+     */
+    public async enqueuePlaylist(interaction: CommandInteraction) {
+        await this.queue.enqueueFromPlaylistQuery(interaction);
+
+        this.processQueue();
+    }
+
+    /**
+     * Stops the currently playing song and resets the queue to an empty queue.
+     * 
+     * @param interaction
+     */
+    public stop(interaction: CommandInteraction) {
+        this.queue.clear();
+        this.audioPlayer.stop();
+        interaction.reply("Stopped all music.");
         this.processQueue();
     }
 
@@ -121,8 +145,8 @@ export class MusicSubscription {
      */
     public seek(interaction: CommandInteraction) {
         this.queue.seek(interaction);
-        // this.audioPlayer.stop(true);
-        this.processQueue();
+        this.audioPlayer.stop();
+        // this.processQueue();
     }
 
     /**
@@ -132,10 +156,24 @@ export class MusicSubscription {
      */
     public skip(interaction: CommandInteraction) {
         this.queue.skip(interaction);
-        // this.audioPlayer.stop(true);
+        this.audioPlayer.stop();
         this.processQueue();
     }
 
+
+    public pause(interaction: CommandInteraction) {
+        this.audioPlayer.pause();
+        interaction.reply("Music has paused.");
+    }
+
+    public resume(interaction: CommandInteraction) {
+        this.audioPlayer.unpause();
+        interaction.reply("Music has resumed.");
+    }
+
+    public remove(interaction: CommandInteraction) {
+        this.queue.remove(interaction);
+    }
 
     /**
      * Starts playing the next song in the Queue if it exists.
