@@ -114,7 +114,7 @@ export default class Song {
      * 
      * @param query user query to look up
      */
-    public static async createFromSC(query:string): Promise<Song> {
+    public static async createFromSC(query: string): Promise<Song> {
         throw new Error("not implemented yet");
     }
 

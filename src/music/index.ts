@@ -19,7 +19,7 @@ async function play(interaction: CommandInteraction): Promise<void> {
     } 
 
     const manager = guildMap.get(guildId) as MusicManager;
-    interaction.deferReply();
+    await interaction.deferReply();
     manager.enqueue(interaction);
 }
 
@@ -36,7 +36,7 @@ async function playlist(interaction: CommandInteraction): Promise<void> {
     } 
 
     const manager = guildMap.get(guildId) as MusicManager;
-    interaction.deferReply();
+    await interaction.deferReply();
     manager.enqueuePlaylist(interaction);
 }
 

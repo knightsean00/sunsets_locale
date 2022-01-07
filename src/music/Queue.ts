@@ -124,19 +124,21 @@ export default class Queue {
             const type = await play.validate(query);
             if (!type || type === "search") {
                 interaction.editReply(`Could not find playlist with ${query}.`);
-                return undefined;
+                return ;
             }
             if (type.endsWith("track") || type.endsWith("video")) {
                 interaction.editReply(`Please use the /play command with ${query} as the query.`);
-                return undefined;
+                return ;
             }
 
             if (type === "yt_playlist") {
                 const url = query;
                 await this.enqueueYouTubePlaylist(interaction, url);
+                return ;
             } else if (type === "so_playlist") {
                 const playlist = await play.soundcloud(query) as SoundCloudPlaylist;
                 await this.enqueueSoundCloudPlaylist(interaction, playlist);
+                return ;
             }
         }
 
