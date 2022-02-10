@@ -1,10 +1,10 @@
 import youtube, { Video,}  from "@yimura/scraper";
 import SongType from "./SongType";
 import { AudioResource, createAudioResource,} from "@discordjs/voice";
-import ytdl from "ytdl-core";
 import play, {YouTubeStream, SoundCloudStream, search, SoundCloudTrack } from "play-dl";
 import { CommandInteraction } from "discord.js";
 import urlReg from "./UrlRegEx";
+import ytdl from "ytdl-core";
 
 const yt = new youtube.Scraper();
 
@@ -122,7 +122,12 @@ export default class Song {
      * Creates an AudioResource object from this Song
      */
     public async createAudioResource(): Promise<AudioResource<Song>> {
-        const stream = await play.stream(this.url);
-        return createAudioResource(stream.stream, {metadata: this});
+        if (this.type === SongType.SoundCloud) {
+            const stream = await play.stream(this.url);
+            return createAudioResource(stream.stream, {metadata: this});
+        }
+        const stream = ytdl(this.url, { filter: "audioonly" });
+        return createAudioResource(stream, {metadata: this});
+        
     }
 }

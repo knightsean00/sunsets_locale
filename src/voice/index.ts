@@ -10,14 +10,14 @@ import { joinVoiceChannel, getVoiceConnection, getVoiceConnections } from "@disc
 export async function join(interaction: CommandInteraction, reply = true): Promise<void> {
     const member = interaction.member as GuildMember;
     const channelID = member.voice.channelId;
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     const adapterCreator = interaction.guild?.voiceAdapterCreator;
 
     if (channelID && guildId && adapterCreator) {
         await joinVoiceChannel({
             channelId: channelID,
-            guildId: interaction.guildId,
-            adapterCreator: interaction.guild?.voiceAdapterCreator,
+            guildId: guildId,
+            adapterCreator: adapterCreator,
         });
         if (reply)
             interaction.reply("I'm here!");
@@ -33,7 +33,8 @@ export async function join(interaction: CommandInteraction, reply = true): Promi
  *                      user guildId.
  */
 export async function dc(interaction: CommandInteraction): Promise<void> {
-    const connection = getVoiceConnection(interaction.guildId);
+    const guildId = interaction.guildId as string;
+    const connection = getVoiceConnection(guildId);
     if (connection) {
         await connection.destroy();
         interaction.reply("Goodbye.");
@@ -45,9 +46,9 @@ export async function dc(interaction: CommandInteraction): Promise<void> {
 /**
  * Disconnects from every voice connection that the client is a part of.
  */
-export async function shutdown(): Promise<void> {
-    getVoiceConnections().forEach(connection => connection.destroy());
-}
+// export async function shutdown(): Promise<void> {
+//     getVoiceConnections().forEach(connection => connection.destroy());
+// }
 
 export const voiceCommands = [
     {

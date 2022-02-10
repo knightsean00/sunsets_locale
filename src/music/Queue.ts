@@ -1,13 +1,11 @@
 import Song from "./Song";
 import SongType from "./SongType";
-import youtube from "@yimura/scraper";
 import { CommandInteraction, MessageEmbed } from "discord.js";
 import { timeRemaining } from "./Time";
 import urlReg from "./UrlRegEx";
-import play, { SoundCloudPlaylist, YouTubePlayList } from "play-dl";
+import play, { SoundCloudPlaylist } from "play-dl";
 import ytpl from "ytpl";
 
-const yt = new youtube.Scraper();
 
 export default class Queue {
     public songs: Array<Song>;
@@ -172,7 +170,9 @@ export default class Queue {
         
         await playlist.fetch();
 
-        const results = playlist.fetched_tracks.map(track => new Song(query,
+        const tracks = await playlist.all_tracks();
+
+        const results = tracks.map(track => new Song(query,
             SongType.SoundCloud,
             track.name,
             track.url,

@@ -7,7 +7,7 @@ import { MusicManager } from "./MusicManager";
 const guildMap: Map<string, MusicManager> = new Map([]);
 
 async function play(interaction: CommandInteraction): Promise<void> {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     let connection = getVoiceConnection(guildId);
     if (!connection) {
         await join(interaction, false);
@@ -24,7 +24,7 @@ async function play(interaction: CommandInteraction): Promise<void> {
 }
 
 async function playlist(interaction: CommandInteraction): Promise<void> {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     let connection = getVoiceConnection(guildId);
     if (!connection) {
         await join(interaction, false);
@@ -46,7 +46,7 @@ async function playlist(interaction: CommandInteraction): Promise<void> {
  * @param interaction 
  */
 function connectionCheck(interaction: CommandInteraction): boolean {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     const connection = getVoiceConnection(guildId);
     if (!connection) {
         interaction.reply("I am not currently in a voice channel.");
@@ -63,7 +63,7 @@ function connectionCheck(interaction: CommandInteraction): boolean {
 
 
 async function stop(interaction: CommandInteraction): Promise<void> {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.stop(interaction);
@@ -71,7 +71,7 @@ async function stop(interaction: CommandInteraction): Promise<void> {
 }
 
 async function seek(interaction: CommandInteraction): Promise<void> {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.seek(interaction);
@@ -79,7 +79,7 @@ async function seek(interaction: CommandInteraction): Promise<void> {
 }
 
 async function skip(interaction: CommandInteraction): Promise<void> {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.skip(interaction);
@@ -87,7 +87,7 @@ async function skip(interaction: CommandInteraction): Promise<void> {
 }
 
 function queue(interaction: CommandInteraction): void {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.sendQueue(interaction);
@@ -95,7 +95,7 @@ function queue(interaction: CommandInteraction): void {
 }
 
 function pause(interaction: CommandInteraction) {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.pause(interaction);
@@ -103,7 +103,7 @@ function pause(interaction: CommandInteraction) {
 }
 
 function resume(interaction: CommandInteraction): void {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.resume(interaction);
@@ -111,7 +111,7 @@ function resume(interaction: CommandInteraction): void {
 }
 
 function remove(interaction: CommandInteraction): void {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         manager.remove(interaction);
@@ -119,7 +119,7 @@ function remove(interaction: CommandInteraction): void {
 }
 
 function nowPlaying(interaction: CommandInteraction): void {
-    const guildId = interaction.guildId;
+    const guildId = interaction.guildId as string;
     if (connectionCheck(interaction)) {
         const manager = guildMap.get(guildId) as MusicManager;
         const res = manager.nowPlaying();

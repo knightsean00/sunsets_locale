@@ -1,7 +1,7 @@
 import { Client, CommandInteraction, Intents } from "discord.js";
 import dotenv from "dotenv";
 import { musicCommands, musicCommandsMapping } from "./music";
-import { voiceCommandsMapping, voiceCommands, shutdown } from "./voice";
+import { voiceCommandsMapping, voiceCommands } from "./voice";
 import play from "play-dl";
 
 dotenv.config();
@@ -26,7 +26,8 @@ const allCommandsMapping = new Map([
 client.on("ready", async () => {
     console.log(`Logged in ${client.user?.tag}`);
 
-    await client.application?.commands.set(allCommands, "917313355419643924");
+    await client.application?.commands.set([], "917313355419643924");
+    await client.application?.commands.set(allCommands);
 });
 
 client.on("interactionCreate", async interaction => {
