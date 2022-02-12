@@ -123,11 +123,23 @@ export default class Song {
      */
     public async createAudioResource(): Promise<AudioResource<Song>> {
         if (this.type === SongType.SoundCloud) {
-            const stream = await play.stream(this.url);
-            return createAudioResource(stream.stream, {metadata: this});
+            const stream = await play.stream(this.url, {
+                discordPlayerCompatibility: true
+            });
+            return createAudioResource(stream.stream, {
+                metadata: this, 
+                inputType:stream.type
+            });
         }
-        const stream = ytdl(this.url, { filter: "audioonly" });
-        return createAudioResource(stream, {metadata: this});
+        // const stream = ytdl(this.url, { filter: "audioonly" });
+        // return createAudioResource(stream, {metadata: this})
+        const stream = await play.stream(this.url, {
+            discordPlayerCompatibility: true
+        });
+        return createAudioResource(stream.stream, {
+            metadata: this, 
+            inputType:stream.type
+        });
         
     }
 }
