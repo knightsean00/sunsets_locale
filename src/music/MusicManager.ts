@@ -16,7 +16,7 @@ import Song from "./Song";
 import SongType from "./SongType";
 
 import { promisify } from "node:util";
-import { CommandInteraction, TextChannel, MessageEmbed } from "discord.js";
+import { CommandInteraction, TextChannel, EmbedBuilder, APIEmbed } from "discord.js";
 import { formatSec } from "./Time";
 
 const wait = promisify(setTimeout);
@@ -42,6 +42,11 @@ export class MusicManager {
         this.cleanUp = cleanUp;
 
         this.voiceConnection.on("stateChange", async (oldState: VoiceConnectionState, newState: VoiceConnectionState) => {
+            console.log(`Connection state change from ${oldState.status} to ${newState.status}`);
+            if (oldState.status === VoiceConnectionStatus.Ready && newState.status === VoiceConnectionStatus.Connecting) {
+                // Fixes issue with song stopping after 1 minute
+                this.voiceConnection.configureNetworking();
+            }
             if (newState.status === VoiceConnectionStatus.Disconnected) {
                 if (newState.reason === VoiceConnectionDisconnectReason.WebSocketClose && newState.closeCode === 4014) {
                     /**
@@ -69,7 +74,9 @@ export class MusicManager {
 
             } else if (newState.status === VoiceConnectionStatus.Destroyed) {
                 // empty queue and shut down subscriber
-                this.audioPlayer.stop(true);
+                this.queue.clear();
+                this.cleanUp();
+                this.voiceConnection.destroy();
 
             } else if (newState.status === VoiceConnectionStatus.Connecting || newState.status === VoiceConnectionStatus.Signalling) {
                 try {
@@ -186,7 +193,7 @@ export class MusicManager {
         
         const nextSong: Song | undefined = this.queue.nowPlaying();
         // parallelism stuff. Even tho we check above that the length is not 0, we might have another call remove the last song.
-        if(nextSong == undefined) {
+        if (nextSong == undefined) {
             return;
         }
         try {
@@ -203,17 +210,17 @@ export class MusicManager {
     /**
      * Sends a message to the channel this bot was originally invoked from describing the song currently playing.
      */
-    public nowPlaying(): MessageEmbed | undefined {
+    public nowPlaying(): APIEmbed | undefined {
         const song = this.queue.nowPlaying();
 
         if (song) {
-            const embed = new MessageEmbed();
+            const embed = new EmbedBuilder();
             embed.setColor("#FF6AD5");
             embed.setTitle(song.title);
             embed.setURL(song.url);
             embed.setThumbnail(song.thumbnail);
             embed.setDescription(`Duration ${formatSec(song.duration)}`);
-            return embed;
+            return embed.toJSON();
         } 
     }
 

@@ -1,9 +1,9 @@
 import Song from "./Song";
 import SongType from "./SongType";
-import { CommandInteraction, MessageEmbed } from "discord.js";
+import { CommandInteraction, EmbedBuilder, APIEmbed, CommandInteractionOptionResolver } from "discord.js";
 import { timeRemaining } from "./Time";
 import urlReg from "./UrlRegEx";
-import play, { SoundCloudPlaylist } from "play-dl";
+import play, { SoundCloudPlaylist, YouTubePlayList } from "play-dl";
 import ytpl from "ytpl";
 
 
@@ -56,7 +56,8 @@ export default class Queue {
      * @param interaction contains an index for modification
      */
     public seek(interaction: CommandInteraction): void {
-        const idx = interaction.options.getInteger("index", true);
+        const options = interaction.options as CommandInteractionOptionResolver;
+        const idx = options.getInteger("index", true);
         if (idx < 0 || idx >= this.songs.length) {
             interaction.reply("Invalid song index");
             return undefined;
@@ -72,7 +73,8 @@ export default class Queue {
      * @param interaction contains an index for modification
      */
     public skip(interaction: CommandInteraction): void {
-        const idx = interaction.options.getInteger("index", false) ?? 1;
+        const options = interaction.options as CommandInteractionOptionResolver;
+        const idx = options.getInteger("index", false) ?? 1;
         if (idx < 0 || idx >= this.songs.length) {
             interaction.reply("Invalid song index.");
             return undefined;
@@ -88,7 +90,8 @@ export default class Queue {
      * @param interaction contains an index for modification
      */
     public remove(interaction: CommandInteraction): void {
-        const idx = interaction.options.getInteger("index", false) ?? 1;
+        const options = interaction.options as CommandInteractionOptionResolver;
+        const idx = options.getInteger("index", false) ?? 1;
         if (idx <= 0 || idx >= this.songs.length) {
             interaction.reply("Invalid song index.");
             return undefined;
@@ -114,10 +117,10 @@ export default class Queue {
      * @throws an error if no playlists matching the query are found
      */
     public async enqueueFromPlaylistQuery(interaction: CommandInteraction): Promise<void> {
-        const query = interaction.options.getString("query", true);
-        const sc = interaction.options.getBoolean("soundcloud", false) ?? false;
+        const options = interaction.options as CommandInteractionOptionResolver;
+        const query = options.getString("query", true);
+        const sc = options.getBoolean("soundcloud", false) ?? false;
 
-        // Probably use regex here
         if (urlReg.test(query)) {
             const type = await play.validate(query);
             if (!type || type === "search") {
@@ -130,8 +133,8 @@ export default class Queue {
             }
 
             if (type === "yt_playlist") {
-                const url = query;
-                await this.enqueueYouTubePlaylist(interaction, url);
+                const playlist = await play.playlist_info(query);
+                await this.enqueueYouTubePlaylist(interaction, playlist);
                 return ;
             } else if (type === "so_playlist") {
                 const playlist = await play.soundcloud(query) as SoundCloudPlaylist;
@@ -155,7 +158,7 @@ export default class Queue {
                 return ;
             }
             const playlist = res[0];
-            await this.enqueueYouTubePlaylist(interaction, playlist.url as string);
+            await this.enqueueYouTubePlaylist(interaction, playlist);
         }
     }
 
@@ -166,7 +169,8 @@ export default class Queue {
      * @param playlist playlist to get Song information from.
      */
     private async enqueueSoundCloudPlaylist(interaction: CommandInteraction, playlist: SoundCloudPlaylist) {
-        const query = interaction.options.getString("query", true);
+        const options = interaction.options as CommandInteractionOptionResolver;
+        const query = options.getString("query", true);
         
         await playlist.fetch();
 
@@ -193,17 +197,24 @@ export default class Queue {
      * @param interaction interaction that contains query as an option and is reply-able.
      * @param url playlist url.
      */
-    private async enqueueYouTubePlaylist(interaction: CommandInteraction, url: string): Promise<void> {
-        const query = interaction.options.getString("query", true);
+    private async enqueueYouTubePlaylist(interaction: CommandInteraction, playlist: YouTubePlayList): Promise<void> {
+        const options = interaction.options as CommandInteractionOptionResolver;
+        const query = options.getString("query", true);
         const oldLength = this.songs.length;
         
-        const res = await ytpl(url, {pages: Infinity});
-        const results = res.items.map(video => new Song(query, 
+        await playlist.fetch();
+
+        const videos = await playlist.all_videos();
+
+        console.log(playlist);
+        console.log(videos);
+
+        const results = videos.map(video => new Song(query, 
             SongType.YouTube,
-            video.title,
-            video.shortUrl,
-            (video.durationSec ?? 0) * 1000,
-            video.bestThumbnail.url ?? "https://images-na.ssl-images-amazon.com/images/I/71e7DkexvHL._AC_SX425_.jpg"
+            video.title ?? "unknown",
+            video.url,
+            video.durationInSec * 1000,
+            video.thumbnails[0].url
         ));
         this.songs.push(...results);
         
@@ -218,7 +229,7 @@ export default class Queue {
      * Creates a MessageEmbed that represents this queue object given a streamTime
      * @param streamTime time that the current song has been streaming.
      */
-    public getQueue(streamTime: number): MessageEmbed {
+    public getQueue(streamTime: number): APIEmbed {
         let output = "";
 
         if (this.songs.length === 0) {
@@ -238,11 +249,11 @@ export default class Queue {
                 }
             }
         }
-        const embedQueue = new MessageEmbed();
+        const embedQueue = new EmbedBuilder();
         embedQueue.setColor("#FF6AD5");
         embedQueue.setTitle("Queue");
         embedQueue.setThumbnail(this.nowPlaying()?.thumbnail ?? "https://images-na.ssl-images-amazon.com/images/I/71e7DkexvHL._AC_SX425_.jpg");
         embedQueue.setDescription(output);
-        return embedQueue;
+        return embedQueue.toJSON();
     }
 }

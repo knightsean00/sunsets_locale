@@ -2,7 +2,7 @@ import youtube, { Video,}  from "@yimura/scraper";
 import SongType from "./SongType";
 import { AudioResource, createAudioResource,} from "@discordjs/voice";
 import play, {YouTubeStream, SoundCloudStream, search, SoundCloudTrack } from "play-dl";
-import { CommandInteraction } from "discord.js";
+import { CommandInteraction, CommandInteractionOptionResolver } from "discord.js";
 import urlReg from "./UrlRegEx";
 import ytdl from "ytdl-core";
 
@@ -26,10 +26,11 @@ export default class Song {
     }
 
     public static async createFromQuery(interaction: CommandInteraction): Promise<Song | undefined> {
-        const query = interaction.options.getString("query", true);
-        const sc = interaction.options.getBoolean("soundcloud", false) ?? false;
+        const options = interaction.options as CommandInteractionOptionResolver;
 
-        // Probably use regex here
+        const query = options.getString("query", true);
+        const sc = options.getBoolean("soundcloud", false) ?? false;
+
         if (urlReg.test(query)) {
             const type = await play.validate(query);
             if (!type || type === "search" || type.endsWith("album")) {
@@ -122,15 +123,15 @@ export default class Song {
      * Creates an AudioResource object from this Song
      */
     public async createAudioResource(): Promise<AudioResource<Song>> {
-        if (this.type === SongType.SoundCloud) {
-            const stream = await play.stream(this.url, {
-                discordPlayerCompatibility: true
-            });
-            return createAudioResource(stream.stream, {
-                metadata: this, 
-                inputType:stream.type
-            });
-        }
+        // if (this.type === SongType.SoundCloud) {
+        //     const stream = await play.stream(this.url, {
+        //         discordPlayerCompatibility: true
+        //     });
+        //     return createAudioResource(stream.stream, {
+        //         metadata: this, 
+        //         inputType: stream.type
+        //     });
+        // }
         // const stream = ytdl(this.url, { filter: "audioonly" });
         // return createAudioResource(stream, {metadata: this})
         const stream = await play.stream(this.url, {
@@ -138,7 +139,7 @@ export default class Song {
         });
         return createAudioResource(stream.stream, {
             metadata: this, 
-            inputType:stream.type
+            inputType: stream.type
         });
         
     }

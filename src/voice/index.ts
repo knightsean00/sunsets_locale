@@ -9,15 +9,13 @@ import { joinVoiceChannel, getVoiceConnection, getVoiceConnections } from "@disc
  */
 export async function join(interaction: CommandInteraction, reply = true): Promise<void> {
     const member = interaction.member as GuildMember;
-    const channelID = member.voice.channelId;
-    const guildId = interaction.guildId as string;
-    const adapterCreator = interaction.guild?.voiceAdapterCreator;
+    const channel = member.voice.channel;
 
-    if (channelID && guildId && adapterCreator) {
+    if (channel && channel.guild.id) {
         await joinVoiceChannel({
-            channelId: channelID,
-            guildId: guildId,
-            adapterCreator: adapterCreator,
+            channelId: channel.id,
+            guildId: channel.guild.id,
+            adapterCreator: channel.guild.voiceAdapterCreator,
         });
         if (reply)
             interaction.reply("I'm here!");

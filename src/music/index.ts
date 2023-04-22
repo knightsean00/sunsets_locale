@@ -1,6 +1,6 @@
 import { getVoiceConnection, VoiceConnection } from "@discordjs/voice";
 import { CommandInteraction } from "discord.js";
-import { ApplicationCommandOptionTypes } from "discord.js/typings/enums";
+import { ApplicationCommandOptionType } from "discord.js";
 import { join } from "../voice";
 import { MusicManager } from "./MusicManager";
 
@@ -137,13 +137,13 @@ export const musicCommands = [
         "description": "Searches and queues the provided Song.",
         "options": [
             {
-                "type": ApplicationCommandOptionTypes.STRING,
+                "type": ApplicationCommandOptionType.String,
                 "name": "query",
                 "description": "Query to be searched and played.",
                 "required": true
             },
             {
-                "type": ApplicationCommandOptionTypes.BOOLEAN,
+                "type": ApplicationCommandOptionType.Boolean,
                 "name": "soundcloud",
                 "description": "Searches SoundCloud for the song instead of YouTube.",
                 "required": false
@@ -155,13 +155,13 @@ export const musicCommands = [
         "description": "Searches and queues the provided playlist query.",
         "options": [
             {
-                "type": ApplicationCommandOptionTypes.STRING,
+                "type": ApplicationCommandOptionType.String,
                 "name": "query",
                 "description": "Name of the playlist to be enqueued.",
                 "required": true
             },
             {
-                "type": ApplicationCommandOptionTypes.BOOLEAN,
+                "type": ApplicationCommandOptionType.Boolean,
                 "name": "soundcloud",
                 "description": "Searches SoundCloud for the playlist instead of YouTube.",
                 "required": false
@@ -177,7 +177,7 @@ export const musicCommands = [
         "description": "Seeks for the given song index.",
         "options": [
             {
-                "type": ApplicationCommandOptionTypes.INTEGER,
+                "type": ApplicationCommandOptionType.Integer,
                 "name": "index",
                 "description": "The position in the queue of the song to be seeked to.",
                 "required": true
@@ -189,7 +189,7 @@ export const musicCommands = [
         "description": "Skips to given index, or if no index is provided, simply skips the currently playing song.",
         "options": [
             {
-                "type": ApplicationCommandOptionTypes.INTEGER,
+                "type": ApplicationCommandOptionType.Integer,
                 "name": "index",
                 "description": "The position in the queue of the song to be skipped to.",
                 "required": false
@@ -213,7 +213,7 @@ export const musicCommands = [
         "description": "Resumes then song at the given index from the queue.",
         "options": [
             {
-                "type": ApplicationCommandOptionTypes.INTEGER,
+                "type": ApplicationCommandOptionType.Integer,
                 "name": "index",
                 "description": "The position in the queue of the song to be removed.",
                 "required": false
